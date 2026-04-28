@@ -24,15 +24,26 @@ function recurrenceLabel(rule) {
 function quadrantLabel(quadrant) {
   const labels = {
     q1: 'Do It Now — Important + Urgent',
-    q2: 'Schedule It — Important + Not Urgent',
+    q2: 'Investment — Important + Not Urgent',
     q3: 'Delegate It — Not Important + Urgent',
     q4: 'Delete It — Not Important + Not Urgent'
   };
   return labels[quadrant] || null;
 }
 
+function calendarSummary(task) {
+  const prefixes = {
+    q1: 'Do it now:',
+    q2: 'Investment:'
+  };
+  const prefix = prefixes[task.quadrant];
+  return prefix ? `${prefix} ${task.name}` : task.name;
+}
+
 function quadrantColor(quadrant, fallback) {
-  const colors = { q1: '11', q2: '10', q3: '5', q4: '8' };
+  // Google Calendar uses a fixed event color palette. These are the closest matches
+  // to the PriorityOS site colors: q1 green, q2 blue, q3 amber, q4 muted gray.
+  const colors = { q1: '10', q2: '9', q3: '5', q4: '8' };
   return colors[quadrant] || fallback;
 }
 
@@ -60,11 +71,11 @@ export async function POST(request) {
     }
 
     const requestBody = {
-      summary: task.name,
+      summary: calendarSummary(task),
       description: eventDescription(task, context),
       start: { dateTime: task.start, timeZone: task.tz },
       end: { dateTime: task.end, timeZone: task.tz },
-      colorId: task.type === 'op' ? '7' : '5'
+      colorId: quadrantColor(task.quadrant, task.type === 'op' ? '7' : '5')
     };
 
     if (task.type === 'op' && task.recRule) requestBody.recurrence = [task.recRule];
@@ -88,6 +99,7 @@ export async function PATCH(request) {
       calendarId: 'primary',
       eventId: task.eventId,
       requestBody: {
+        summary: calendarSummary(task),
         description: eventDescription(task, context),
         colorId: quadrantColor(task.quadrant, task.type === 'op' ? '7' : '5')
       }
