@@ -1,5 +1,5 @@
-import PriorityApp from './PriorityApp';
+import PriorityAppV2 from './PriorityAppV2';
 
 export default function Home() {
-  return <PriorityApp />;
+  return <PriorityAppV2 />;
 }
