@@ -1,4 +1,5 @@
 import './globals.css';
+import TaskNotesPatch from './TaskNotesPatch';
 
 export const metadata = {
   title: 'PriorityOS — Calendar Sync',
@@ -8,7 +9,10 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        {children}
+        <TaskNotesPatch />
+      </body>
     </html>
   );
 }
