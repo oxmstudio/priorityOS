@@ -26,6 +26,7 @@ export default function TaskNotesPatch() {
     };
 
     const getMode = () => localStorage.getItem('priorityos.mode') === 'personal' ? 'personal' : 'business';
+    const isConnected = () => !!document.querySelector('.cal-status.connected');
 
     const addWorkspaceToggle = () => {
       if (document.getElementById('priorityos-workspace-toggle')) return;
@@ -58,6 +59,30 @@ export default function TaskNotesPatch() {
       });
     };
 
+    const addSignupGate = () => {
+      const taskSelect = document.getElementById('sch-task-sel');
+      const syncButton = [...document.querySelectorAll('button')].find((button) => button.textContent?.includes('Schedule Task'));
+      if (!taskSelect || !syncButton) return;
+
+      const existing = document.getElementById('priorityos-signup-gate');
+      if (isConnected()) {
+        existing?.remove();
+        return;
+      }
+
+      if (existing) return;
+      const gate = document.createElement('div');
+      gate.id = 'priorityos-signup-gate';
+      gate.className = 'hint';
+      gate.style.margin = '12px 0 0';
+      gate.innerHTML = `
+        <h4>Create your account to schedule</h4>
+        <p>Your dashboard is saved locally while you plan. When you schedule your first task, connect Google Calendar to create your private account, save your dashboard to Vercel Blob, and sync events to your own calendar.</p>
+        <a class="btn-cal" href="/api/auth/google" style="display:inline-flex;margin-top:10px;text-decoration:none;">Create Account & Connect Calendar</a>
+      `;
+      syncButton.parentElement?.insertAdjacentElement('beforebegin', gate);
+    };
+
     const addNotesBox = () => {
       if (document.getElementById('sch-task-notes')) return;
       const taskSelect = document.getElementById('sch-task-sel');
@@ -77,6 +102,7 @@ export default function TaskNotesPatch() {
 
     const enhance = () => {
       addWorkspaceToggle();
+      addSignupGate();
       addNotesBox();
     };
 
