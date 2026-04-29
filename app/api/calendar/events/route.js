@@ -52,6 +52,7 @@ function eventDescription(task, context = {}) {
     '📋 PriorityOS Task',
     task.type === 'op' ? `🔄 Recurring: ${recurrenceLabel(task.recRule)}` : '📅 Project task',
     task.quadrant ? `⚡ Priority: ${quadrantLabel(task.quadrant)}` : '',
+    task.notes ? `📝 Notes:\n${task.notes}` : '',
     Array.isArray(context.goals) && context.goals.length ? `🎯 Goals: ${context.goals.slice(0, 2).join(' | ')}` : '',
     Array.isArray(context.values) && context.values.length ? `💎 Values: ${context.values.slice(0, 3).join(', ')}` : '',
     '',
