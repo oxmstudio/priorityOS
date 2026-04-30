@@ -5,17 +5,23 @@ import { useEffect } from 'react';
 export default function TaskNotesPatch() {
   useEffect(() => {
     const originalFetch = window.fetch.bind(window);
+    let pendingSaveInFlight = false;
 
     function getMode() {
       return localStorage.getItem('priorityos.mode') === 'personal' ? 'personal' : 'business';
     }
 
     function isConnected() {
-      return !!document.querySelector('.cal-status.connected');
+      return !!document.querySelector('.cal-status.connected') || !!document.querySelector('.tag-pill .tag-txt')?.textContent?.includes('@');
+    }
+
+    function schedulerRoot() {
+      return document.getElementById('sch-task-sel')?.closest('.card') || document;
     }
 
     function activeText(selector) {
-      return [...document.querySelectorAll(selector)].find((button) => button.className.includes('active') || button.className.includes('op') || button.className.includes('pr'))?.textContent?.trim() || '';
+      const root = schedulerRoot();
+      return [...root.querySelectorAll(selector)].find((button) => button.className.includes('active') || button.className.includes('op') || button.className.includes('pr'))?.textContent?.trim() || '';
     }
 
     function selectedTaskName() {
@@ -33,6 +39,7 @@ export default function TaskNotesPatch() {
     }
 
     function buildSchedulePayload() {
+      const root = schedulerRoot();
       const isOperational = activeText('.ttog .ttbtn').includes('Operational');
       const notes = document.getElementById('sch-task-notes')?.value?.trim() || '';
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -56,7 +63,7 @@ export default function TaskNotesPatch() {
         if (recText.includes('Monthly')) recRule = 'RRULE:FREQ=MONTHLY';
         else if (recText.includes('Weekdays')) recRule = 'RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR';
         else if (recText.includes('Weekly')) {
-          const days = [...document.querySelectorAll('.rec-opts .rec-btn.active')]
+          const days = [...root.querySelectorAll('.rec-opts .rec-btn.active')]
             .map((button) => button.textContent.trim())
             .filter((label) => ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].includes(label))
             .map((label) => ({ Mon: 'MO', Tue: 'TU', Wed: 'WE', Thu: 'TH', Fri: 'FR', Sat: 'SA', Sun: 'SU' }[label]));
@@ -94,21 +101,43 @@ export default function TaskNotesPatch() {
       return response;
     };
 
+    async function postInternalCalendarEvent(payload) {
+      const response = await originalFetch(`/api/calendar/internal?mode=${payload.mode || getMode()}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Internal calendar save failed.');
+      return data;
+    }
+
+    async function resumePendingInternalSave() {
+      if (pendingSaveInFlight || !isConnected()) return;
+      const raw = localStorage.getItem('priorityos.pendingInternalEvent');
+      if (!raw) return;
+      pendingSaveInFlight = true;
+      try {
+        const payload = JSON.parse(raw);
+        await postInternalCalendarEvent(payload);
+        localStorage.removeItem('priorityos.pendingInternalEvent');
+        window.location.href = '/dashboard/calendar';
+      } catch (_error) {
+        pendingSaveInFlight = false;
+      }
+    }
+
     async function saveInternalCalendarEvent() {
+      const payload = buildSchedulePayload();
       if (!isConnected()) {
+        localStorage.setItem('priorityos.pendingInternalEvent', JSON.stringify(payload));
         window.location.href = '/api/auth/google?returnTo=/dashboard/planner';
         return;
       }
       const button = document.getElementById('priorityos-save-internal-calendar');
       if (button) button.textContent = 'Saving to PriorityOS…';
       try {
-        const response = await originalFetch(`/api/calendar/internal?mode=${getMode()}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(buildSchedulePayload())
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Internal calendar save failed.');
+        await postInternalCalendarEvent(payload);
         if (button) button.textContent = 'Saved to PriorityOS Calendar ✓';
         setTimeout(() => { window.location.href = '/dashboard/calendar'; }, 700);
       } catch (error) {
@@ -189,6 +218,7 @@ export default function TaskNotesPatch() {
       addSignupGate();
       addNotesBox();
       addInternalCalendarButton();
+      resumePendingInternalSave();
     };
 
     enhance();
