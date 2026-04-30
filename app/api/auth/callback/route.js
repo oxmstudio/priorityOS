@@ -8,6 +8,12 @@ function appUrl() {
   return process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 }
 
+function getReturnPath(request) {
+  const value = request.cookies.get('priorityos_return_to')?.value || '/dashboard';
+  if (!value.startsWith('/') || value.startsWith('//')) return '/dashboard';
+  return value;
+}
+
 export async function GET(request) {
   const url = new URL(request.url);
   const code = url.searchParams.get('code');
@@ -24,10 +30,17 @@ export async function GET(request) {
     oauthClient.setCredentials(tokens);
     const profile = await getGoogleProfile(oauthClient);
 
-    const response = NextResponse.redirect(`${appUrl()}/?auth=connected`);
+    const destination = `${appUrl()}${getReturnPath(request)}?auth=connected`;
+    const response = NextResponse.redirect(destination);
     setSessionCookie(response, { tokens, profile });
     response.cookies.set({
       name: 'priorityos_oauth_state',
+      value: '',
+      path: '/',
+      maxAge: 0
+    });
+    response.cookies.set({
+      name: 'priorityos_return_to',
       value: '',
       path: '/',
       maxAge: 0
