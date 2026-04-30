@@ -1,3 +1,4 @@
+import './calendar.css';
 import CalendarClient from './CalendarClient';
 
 export const metadata = {
