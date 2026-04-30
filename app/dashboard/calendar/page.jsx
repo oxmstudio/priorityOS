@@ -1,5 +1,4 @@
-import './calendar.css';
-import CalendarClient from './CalendarClient';
+import CalendarClientV2 from './CalendarClientV2';
 
 export const metadata = {
   title: 'Calendar — PriorityOS Dashboard',
@@ -7,5 +6,5 @@ export const metadata = {
 };
 
 export default function CalendarPage() {
-  return <CalendarClient />;
+  return <CalendarClientV2 />;
 }
