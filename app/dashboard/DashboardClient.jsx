@@ -72,7 +72,7 @@ export default function DashboardClient() {
   }
 
   if (!auth.loading && !auth.connected) {
-    return <main className="main" style={{ paddingTop: 130 }}><section className="card"><div className="sh-tag lg" style={{ color: 'var(--blue)' }}><span className="sh-dot" style={{ background: 'var(--blue)' }} /> Account</div><h1 className="sh-title">Connect to open your <span className="serif">dashboard.</span></h1><p className="sh-sub">Your dashboard becomes available after connecting Google Calendar and creating your PriorityOS account.</p><a className="btn-cal" href="/api/auth/google" style={{ display: 'inline-flex' }}>Create Account & Connect Calendar</a></section></main>;
+    return <main className="main" style={{ paddingTop: 130 }}><section className="card"><div className="sh-tag lg" style={{ color: 'var(--blue)' }}><span className="sh-dot" style={{ background: 'var(--blue)' }} /> Account</div><h1 className="sh-title">Connect to open your <span className="serif">dashboard.</span></h1><p className="sh-sub">Your dashboard becomes available after connecting Google Calendar and creating your PriorityOS account.</p><a className="btn-cal" href="/api/auth/google?returnTo=/dashboard" style={{ display: 'inline-flex' }}>Create Account & Connect Calendar</a></section></main>;
   }
 
   return <>
@@ -83,8 +83,8 @@ export default function DashboardClient() {
         <h1 className="hero-h1">Your PriorityOS<br /><span className="serif">Dashboard.</span></h1>
         <p className="hero-sub">A private command center for your values, goals, matrix, and Google Calendar-synced commitments.</p>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
-          <a className="hero-cta" href="/" style={{ textDecoration: 'none' }}>Open Planner</a>
-          <a className="btn-ghost" href="/api/auth/google" style={{ textDecoration: 'none' }}>Reconnect Calendar</a>
+          <a className="hero-cta" href="/dashboard/planner" style={{ textDecoration: 'none' }}>Open Planner</a>
+          <a className="btn-ghost" href="/api/auth/google?returnTo=/dashboard" style={{ textDecoration: 'none' }}>Reconnect Calendar</a>
         </div>
       </div>
     </section>
