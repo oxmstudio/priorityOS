@@ -15,14 +15,16 @@ export default function TaskNotesPatch() {
         try {
           const body = JSON.parse(init.body);
           const notes = document.getElementById('sch-task-notes')?.value?.trim();
-          if (notes) {
-            body.task = { ...(body.task || {}), notes };
-            init = { ...init, body: JSON.stringify(body) };
-          }
+          if (notes) body.task = { ...(body.task || {}), notes };
+          init = { ...init, body: JSON.stringify(body) };
         } catch (_error) {}
       }
 
-      return originalFetch(input, init);
+      const response = await originalFetch(input, init);
+      if (isCalendarPost && response.ok && window.location.pathname !== '/dashboard') {
+        setTimeout(() => { window.location.href = '/dashboard'; }, 1200);
+      }
+      return response;
     };
 
     const getMode = () => localStorage.getItem('priorityos.mode') === 'personal' ? 'personal' : 'business';
@@ -101,7 +103,7 @@ export default function TaskNotesPatch() {
     };
 
     const enhance = () => {
-      addWorkspaceToggle();
+      if (window.location.pathname !== '/dashboard') addWorkspaceToggle();
       addSignupGate();
       addNotesBox();
     };
