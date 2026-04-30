@@ -21,8 +21,28 @@ export default function TaskNotesPatch() {
       }
 
       const response = await originalFetch(input, init);
-      if (isCalendarPost && response.ok && window.location.pathname !== '/dashboard') {
-        setTimeout(() => { window.location.href = '/dashboard'; }, 1200);
+      if (isCalendarPost) {
+        if (response.ok) {
+          if (window.location.pathname !== '/dashboard') setTimeout(() => { window.location.href = '/dashboard'; }, 1200);
+          return response;
+        }
+
+        try {
+          const failed = await response.clone().json();
+          const body = JSON.parse(init.body);
+          const internalId = `internal-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+          const internalResponse = {
+            eventId: internalId,
+            link: '/dashboard/calendar',
+            internal: true,
+            warning: failed.error || 'Google Calendar sync failed, so this task was saved to your PriorityOS internal calendar instead.'
+          };
+          window.dispatchEvent(new CustomEvent('priorityos-internal-calendar-fallback', { detail: internalResponse }));
+          if (body?.task) body.task.internalCalendar = true;
+          return new Response(JSON.stringify(internalResponse), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        } catch (_error) {
+          return response;
+        }
       }
       return response;
     };
@@ -80,7 +100,7 @@ export default function TaskNotesPatch() {
       gate.innerHTML = `
         <h4>Create your account to schedule</h4>
         <p>Your dashboard is saved locally while you plan. When you schedule your first task, connect Google Calendar to create your private account, save your dashboard to Vercel Blob, and sync events to your own calendar.</p>
-        <a class="btn-cal" href="/api/auth/google" style="display:inline-flex;margin-top:10px;text-decoration:none;">Create Account & Connect Calendar</a>
+        <a class="btn-cal" href="/api/auth/google?returnTo=/dashboard" style="display:inline-flex;margin-top:10px;text-decoration:none;">Create Account & Connect Calendar</a>
       `;
       syncButton.parentElement?.insertAdjacentElement('beforebegin', gate);
     };
