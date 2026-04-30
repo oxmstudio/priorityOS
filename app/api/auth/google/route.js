@@ -12,13 +12,19 @@ function safeReturnTo(request) {
   return requested;
 }
 
+function encodeState(token, returnTo) {
+  return Buffer.from(JSON.stringify({ token, returnTo })).toString('base64url');
+}
+
 export async function GET(request) {
   try {
-    const state = crypto.randomBytes(16).toString('hex');
+    const token = crypto.randomBytes(16).toString('hex');
+    const returnTo = safeReturnTo(request);
+    const state = encodeState(token, returnTo);
     const response = NextResponse.redirect(getAuthUrl(state));
     response.cookies.set({
       name: 'priorityos_oauth_state',
-      value: state,
+      value: token,
       httpOnly: true,
       sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
@@ -27,7 +33,7 @@ export async function GET(request) {
     });
     response.cookies.set({
       name: 'priorityos_return_to',
-      value: safeReturnTo(request),
+      value: returnTo,
       httpOnly: true,
       sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
