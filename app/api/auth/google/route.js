@@ -4,13 +4,30 @@ import { getAuthUrl } from '../../../../lib/google';
 
 export const runtime = 'nodejs';
 
-export async function GET() {
+function safeReturnTo(request) {
+  const url = new URL(request.url);
+  const requested = url.searchParams.get('returnTo');
+  if (!requested || !requested.startsWith('/')) return '/dashboard';
+  if (requested.startsWith('//')) return '/dashboard';
+  return requested;
+}
+
+export async function GET(request) {
   try {
     const state = crypto.randomBytes(16).toString('hex');
     const response = NextResponse.redirect(getAuthUrl(state));
     response.cookies.set({
       name: 'priorityos_oauth_state',
       value: state,
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 60 * 10
+    });
+    response.cookies.set({
+      name: 'priorityos_return_to',
+      value: safeReturnTo(request),
       httpOnly: true,
       sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
