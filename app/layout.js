@@ -46,6 +46,11 @@ export default function RootLayout({ children }) {
       <body>
         <Script id="priorityos-workspace-fetch" strategy="beforeInteractive">{workspaceFetchPatch}</Script>
         {children}
+        <footer className="site-footer">
+          <span>© {new Date().getFullYear()} PriorityOS</span>
+          <a href="/privacy">Privacy Policy</a>
+          <a href="/terms">Terms of Service</a>
+        </footer>
         <TaskNotesPatch />
       </body>
     </html>
