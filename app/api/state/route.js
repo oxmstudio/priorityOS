@@ -8,6 +8,7 @@ const EMPTY_WORKSPACE = {
   values: [],
   goals: [],
   tasks: [],
+  calendarEvents: [],
   quads: { q1: [], q2: [], q3: [], q4: [] },
   synced: 0
 };
@@ -22,6 +23,22 @@ function isWorkspaceState(state) {
   return state && Array.isArray(state.tasks) && state.quads;
 }
 
+function ensureWorkspaceShape(workspace) {
+  return {
+    values: Array.isArray(workspace?.values) ? workspace.values : [],
+    goals: Array.isArray(workspace?.goals) ? workspace.goals : [],
+    tasks: Array.isArray(workspace?.tasks) ? workspace.tasks : [],
+    calendarEvents: Array.isArray(workspace?.calendarEvents) ? workspace.calendarEvents : [],
+    quads: {
+      q1: Array.isArray(workspace?.quads?.q1) ? workspace.quads.q1 : [],
+      q2: Array.isArray(workspace?.quads?.q2) ? workspace.quads.q2 : [],
+      q3: Array.isArray(workspace?.quads?.q3) ? workspace.quads.q3 : [],
+      q4: Array.isArray(workspace?.quads?.q4) ? workspace.quads.q4 : []
+    },
+    synced: Number.isFinite(Number(workspace?.synced)) ? Number(workspace.synced) : 0
+  };
+}
+
 export async function GET(request) {
   const session = getSession();
   if (!session?.profile?.email) {
@@ -31,7 +48,7 @@ export async function GET(request) {
   try {
     const fullState = await readPriorityState(session.profile.email);
     const mode = modeFromRequest(request, fullState.activeMode);
-    const workspace = fullState.workspaces?.[mode] || EMPTY_WORKSPACE;
+    const workspace = ensureWorkspaceShape(fullState.workspaces?.[mode] || EMPTY_WORKSPACE);
     return NextResponse.json({ state: workspace, mode, fullState });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -54,13 +71,14 @@ export async function PUT(request) {
     if (incoming?.workspaces) {
       nextState = incoming;
     } else if (isWorkspaceState(incoming)) {
+      const currentWorkspace = ensureWorkspaceShape(existing.workspaces?.[mode] || EMPTY_WORKSPACE);
       nextState = {
         ...existing,
         activeMode: mode,
         workspaces: {
-          business: existing.workspaces?.business || EMPTY_WORKSPACE,
-          personal: existing.workspaces?.personal || EMPTY_WORKSPACE,
-          [mode]: incoming
+          business: ensureWorkspaceShape(existing.workspaces?.business || EMPTY_WORKSPACE),
+          personal: ensureWorkspaceShape(existing.workspaces?.personal || EMPTY_WORKSPACE),
+          [mode]: ensureWorkspaceShape({ ...currentWorkspace, ...incoming })
         }
       };
     } else {
@@ -68,7 +86,8 @@ export async function PUT(request) {
     }
 
     const saved = await writePriorityState(session.profile.email, nextState);
-    return NextResponse.json({ ok: true, state: saved.workspaces?.[mode] || EMPTY_WORKSPACE, mode, fullState: saved });
+    const workspace = ensureWorkspaceShape(saved.workspaces?.[mode] || EMPTY_WORKSPACE);
+    return NextResponse.json({ ok: true, state: workspace, mode, fullState: saved });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
