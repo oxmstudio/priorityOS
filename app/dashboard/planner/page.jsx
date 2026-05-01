@@ -1,4 +1,4 @@
-import PriorityAppV3 from '../../PriorityAppV3';
+import PriorityWizard from './PriorityWizard';
 
 export const metadata = {
   title: 'Planner — PriorityOS Dashboard',
@@ -6,5 +6,5 @@ export const metadata = {
 };
 
 export default function DashboardPlannerPage() {
-  return <PriorityAppV3 />;
+  return <PriorityWizard />;
 }
