@@ -1,4 +1,4 @@
-import PriorityWizard from './PriorityWizard';
+import PriorityWizardFixed from './PriorityWizardFixed';
 
 export const metadata = {
   title: 'Planner — PriorityOS Dashboard',
@@ -6,5 +6,5 @@ export const metadata = {
 };
 
 export default function DashboardPlannerPage() {
-  return <PriorityWizard />;
+  return <PriorityWizardFixed />;
 }
