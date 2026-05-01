@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
-const EMPTY = { values: [], goals: [], tasks: [], quads: { q1: [], q2: [], q3: [], q4: [] }, synced: 0 };
+const EMPTY = { values: [], goals: [], tasks: [], calendarEvents: [], quads: { q1: [], q2: [], q3: [], q4: [] }, synced: 0 };
 const modes = ['business', 'personal'];
 const qNames = { q1: 'Do It Now', q2: 'Investment', q3: 'Delegate It', q4: 'Delete It' };
 const qColors = { q1: 'green', q2: 'blue', q3: 'amber', q4: 'red' };
@@ -12,6 +12,7 @@ function normalize(s) {
     values: Array.isArray(s?.values) ? s.values : [],
     goals: Array.isArray(s?.goals) ? s.goals : [],
     tasks: Array.isArray(s?.tasks) ? s.tasks : [],
+    calendarEvents: Array.isArray(s?.calendarEvents) ? s.calendarEvents : [],
     quads: {
       q1: Array.isArray(s?.quads?.q1) ? s.quads.q1 : [],
       q2: Array.isArray(s?.quads?.q2) ? s.quads.q2 : [],
@@ -37,11 +38,16 @@ export default function DashboardClient() {
   const [state, setState] = useState(EMPTY);
   const [loading, setLoading] = useState(true);
 
-  const scheduledTasks = useMemo(() => state.tasks.filter((task) => task.eventId), [state.tasks]);
-  const unscheduledTasks = useMemo(() => state.tasks.filter((task) => !task.eventId), [state.tasks]);
+  const calendarEvents = useMemo(() => state.calendarEvents || [], [state.calendarEvents]);
+  const scheduledTasks = useMemo(() => state.tasks.filter((task) => task.internalEventId || task.eventId || task.start), [state.tasks]);
+  const unscheduledTasks = useMemo(() => state.tasks.filter((task) => !task.internalEventId && !task.eventId && !task.start), [state.tasks]);
   const q1Tasks = useMemo(() => state.tasks.filter((task) => task.quadrant === 'q1'), [state.tasks]);
   const q2Tasks = useMemo(() => state.tasks.filter((task) => task.quadrant === 'q2'), [state.tasks]);
-  const nextTask = useMemo(() => scheduledTasks.slice().sort((a, b) => new Date(a.start || 0) - new Date(b.start || 0))[0], [scheduledTasks]);
+  const nextCommitment = useMemo(() => {
+    const fromEvents = calendarEvents.map((event) => ({ name: event.title, start: event.start, quadrant: event.quadrant, calLink: event.googleLink }));
+    const fromTasks = scheduledTasks.map((task) => ({ name: task.name, start: task.start, quadrant: task.quadrant, calLink: task.calLink }));
+    return [...fromEvents, ...fromTasks].filter((item) => item.start).sort((a, b) => new Date(a.start || 0) - new Date(b.start || 0))[0];
+  }, [calendarEvents, scheduledTasks]);
 
   useEffect(() => {
     const storedMode = localStorage.getItem('priorityos.mode') === 'personal' ? 'personal' : 'business';
@@ -81,10 +87,10 @@ export default function DashboardClient() {
       <div className="hero-content">
         <div className="tag-pill lg"><span className="tag-new">Account</span><span className="tag-txt">{auth.profile?.email || 'Loading account…'}</span></div>
         <h1 className="hero-h1">Your PriorityOS<br /><span className="serif">Dashboard.</span></h1>
-        <p className="hero-sub">A private command center for your values, goals, matrix, and Google Calendar-synced commitments.</p>
+        <p className="hero-sub">A private command center for your values, goals, matrix, and PriorityOS Calendar commitments.</p>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
           <a className="hero-cta" href="/dashboard/planner" style={{ textDecoration: 'none' }}>Open Planner</a>
-          <a className="btn-ghost" href="/api/auth/google?returnTo=/dashboard" style={{ textDecoration: 'none' }}>Reconnect Calendar</a>
+          <a className="btn-ghost" href="/dashboard/calendar" style={{ textDecoration: 'none' }}>Open Calendar</a>
         </div>
       </div>
     </section>
@@ -103,16 +109,16 @@ export default function DashboardClient() {
       <div className="stats">
         <SmallStat label="Values" value={state.values.length} color="green" />
         <SmallStat label="Goals" value={state.goals.length} color="blue" />
-        <SmallStat label="Synced Events" value={scheduledTasks.length} color="amber" />
+        <SmallStat label="Calendar Events" value={calendarEvents.length} color="amber" />
         <SmallStat label="Needs Scheduling" value={unscheduledTasks.length} color="red" />
       </div>
 
       <section className="card">
         <div className="card-hdr">Next Commitment</div>
-        {loading ? <p className="empty">Loading dashboard…</p> : nextTask ? <div>
-          <h2 className="sh-title" style={{ fontSize: 24, marginBottom: 6 }}>{nextTask.name}</h2>
-          <p className="sh-sub" style={{ marginBottom: 12 }}>{formatDate(nextTask.start)} · {qNames[nextTask.quadrant] || 'Priority set'}</p>
-          {nextTask.calLink ? <a className="btn-cal" href={nextTask.calLink} target="_blank" rel="noreferrer" style={{ display: 'inline-flex' }}>Open in Google Calendar</a> : null}
+        {loading ? <p className="empty">Loading dashboard…</p> : nextCommitment ? <div>
+          <h2 className="sh-title" style={{ fontSize: 24, marginBottom: 6 }}>{nextCommitment.name}</h2>
+          <p className="sh-sub" style={{ marginBottom: 12 }}>{formatDate(nextCommitment.start)} · {qNames[nextCommitment.quadrant] || 'PriorityOS Calendar'}</p>
+          {nextCommitment.calLink ? <a className="btn-cal" href={nextCommitment.calLink} target="_blank" rel="noreferrer" style={{ display: 'inline-flex' }}>Open in Google Calendar</a> : <a className="btn-cal" href="/dashboard/calendar" style={{ display: 'inline-flex' }}>Open PriorityOS Calendar</a>}
         </div> : <p className="empty">No scheduled task yet. Use the planner to schedule your first priority.</p>}
       </section>
 
@@ -129,9 +135,9 @@ export default function DashboardClient() {
       </section>
 
       <section className="card">
-        <div className="card-hdr">Recent Scheduled Tasks</div>
+        <div className="card-hdr">Recent Calendar Events</div>
         <ul className="ilist">
-          {scheduledTasks.length ? scheduledTasks.slice(-8).reverse().map((task) => <li key={task.id || task.eventId}><span className="idot" style={{ background: `var(--${qColors[task.quadrant] || 'blue'})` }} /><span style={{ flex: 1 }}><span style={{ display: 'block', marginBottom: 3 }}>{task.name}</span><span style={{ fontSize: 11, color: 'var(--muted)' }}>{formatDate(task.start)} · {qNames[task.quadrant] || 'Priority'}</span></span>{task.calLink ? <a href={task.calLink} target="_blank" rel="noreferrer" style={{ color: 'var(--blue)', fontSize: 11, textDecoration: 'none' }}>Open ↗</a> : null}</li>) : <li className="empty">No synced calendar tasks yet.</li>}
+          {calendarEvents.length ? calendarEvents.slice(-8).reverse().map((event) => <li key={event.id}><span className="idot" style={{ background: `var(--${qColors[event.quadrant] || 'blue'})` }} /><span style={{ flex: 1 }}><span style={{ display: 'block', marginBottom: 3 }}>{event.title}</span><span style={{ fontSize: 11, color: 'var(--muted)' }}>{formatDate(event.start)} · {qNames[event.quadrant] || 'PriorityOS Calendar'} · {event.googleEventId ? 'Google synced' : 'Internal only'}</span></span>{event.googleLink ? <a href={event.googleLink} target="_blank" rel="noreferrer" style={{ color: 'var(--blue)', fontSize: 11, textDecoration: 'none' }}>Open ↗</a> : null}</li>) : <li className="empty">No calendar events yet.</li>}
         </ul>
       </section>
     </main>
