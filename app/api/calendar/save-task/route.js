@@ -57,6 +57,14 @@ function rebuildQuads(tasks) {
   };
 }
 
+function eventCount(state, mode) {
+  return state?.workspaces?.[mode]?.calendarEvents?.length || 0;
+}
+
+function taskCount(state, mode) {
+  return state?.workspaces?.[mode]?.tasks?.length || 0;
+}
+
 export async function POST(request) {
   const session = getSession();
   if (!session?.profile?.email) {
@@ -113,19 +121,33 @@ export async function POST(request) {
     };
 
     const saved = await writePriorityState(session.profile.email, nextState);
+    const verified = await readPriorityState(session.profile.email);
     const afterWorkspace = saved.workspaces?.[mode] || EMPTY_WORKSPACE;
-    const afterCount = afterWorkspace.calendarEvents?.length || 0;
+    const verifiedWorkspace = verified.workspaces?.[mode] || EMPTY_WORKSPACE;
 
     return NextResponse.json({
       ok: true,
-      stage: 'saved',
+      stage: 'saved-and-verified',
       email: session.profile.email,
       mode,
       beforeCount,
-      afterCount,
+      afterCount: afterWorkspace.calendarEvents?.length || 0,
+      verifyReadCount: verifiedWorkspace.calendarEvents?.length || 0,
+      afterTaskCount: afterWorkspace.tasks?.length || 0,
+      verifyTaskCount: verifiedWorkspace.tasks?.length || 0,
       event,
       task: savedTask,
-      state: afterWorkspace
+      state: verifiedWorkspace,
+      allWorkspaceCounts: {
+        business: {
+          events: eventCount(verified, 'business'),
+          tasks: taskCount(verified, 'business')
+        },
+        personal: {
+          events: eventCount(verified, 'personal'),
+          tasks: taskCount(verified, 'personal')
+        }
+      }
     });
   } catch (error) {
     return NextResponse.json({ ok: false, stage: 'write', error: error.message }, { status: 500 });
