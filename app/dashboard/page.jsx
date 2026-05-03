@@ -1,4 +1,4 @@
-import DashboardClient from './DashboardClient';
+import DashboardClientIntegrated from './DashboardClientIntegrated';
 
 export const metadata = {
   title: 'Dashboard — PriorityOS',
@@ -6,5 +6,5 @@ export const metadata = {
 };
 
 export default function DashboardPage() {
-  return <DashboardClient />;
+  return <DashboardClientIntegrated />;
 }
