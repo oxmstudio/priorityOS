@@ -10,6 +10,7 @@ const EMPTY_WORKSPACE = {
   tasks: [],
   calendarEvents: [],
   statistics: null,
+  habits: { completions: {} },
   quads: { q1: [], q2: [], q3: [], q4: [] },
   synced: 0
 };
@@ -24,6 +25,10 @@ function isWorkspaceState(state) {
   return state && Array.isArray(state.tasks) && state.quads;
 }
 
+function ensureHabits(habits) {
+  return { completions: habits?.completions && typeof habits.completions === 'object' ? habits.completions : {} };
+}
+
 function ensureWorkspaceShape(workspace) {
   return {
     values: Array.isArray(workspace?.values) ? workspace.values : [],
@@ -31,6 +36,7 @@ function ensureWorkspaceShape(workspace) {
     tasks: Array.isArray(workspace?.tasks) ? workspace.tasks : [],
     calendarEvents: Array.isArray(workspace?.calendarEvents) ? workspace.calendarEvents : [],
     statistics: workspace?.statistics && typeof workspace.statistics === 'object' ? workspace.statistics : null,
+    habits: ensureHabits(workspace?.habits),
     quads: {
       q1: Array.isArray(workspace?.quads?.q1) ? workspace.quads.q1 : [],
       q2: Array.isArray(workspace?.quads?.q2) ? workspace.quads.q2 : [],
@@ -43,10 +49,7 @@ function ensureWorkspaceShape(workspace) {
 
 export async function GET(request) {
   const session = getSession();
-  if (!session?.profile?.email) {
-    return NextResponse.json({ error: 'Connect Google Calendar before loading Blob state.' }, { status: 401 });
-  }
-
+  if (!session?.profile?.email) return NextResponse.json({ error: 'Connect Google Calendar before loading Blob state.' }, { status: 401 });
   try {
     const fullState = await readPriorityState(session.profile.email);
     const mode = modeFromRequest(request, fullState.activeMode);
@@ -59,20 +62,15 @@ export async function GET(request) {
 
 export async function PUT(request) {
   const session = getSession();
-  if (!session?.profile?.email) {
-    return NextResponse.json({ error: 'Connect Google Calendar before saving Blob state.' }, { status: 401 });
-  }
-
+  if (!session?.profile?.email) return NextResponse.json({ error: 'Connect Google Calendar before saving Blob state.' }, { status: 401 });
   try {
     const body = await request.json();
     const incoming = body.state || body;
     const existing = await readPriorityState(session.profile.email);
     const mode = body.mode === 'personal' || body.activeMode === 'personal' ? 'personal' : modeFromRequest(request, existing.activeMode);
-
     let nextState;
-    if (incoming?.workspaces) {
-      nextState = incoming;
-    } else if (isWorkspaceState(incoming)) {
+    if (incoming?.workspaces) nextState = incoming;
+    else if (isWorkspaceState(incoming)) {
       const currentWorkspace = ensureWorkspaceShape(existing.workspaces?.[mode] || EMPTY_WORKSPACE);
       nextState = {
         ...existing,
@@ -83,10 +81,7 @@ export async function PUT(request) {
           [mode]: ensureWorkspaceShape({ ...currentWorkspace, ...incoming })
         }
       };
-    } else {
-      nextState = existing;
-    }
-
+    } else nextState = existing;
     const saved = await writePriorityState(session.profile.email, nextState);
     const workspace = ensureWorkspaceShape(saved.workspaces?.[mode] || EMPTY_WORKSPACE);
     return NextResponse.json({ ok: true, state: workspace, mode, fullState: saved });
