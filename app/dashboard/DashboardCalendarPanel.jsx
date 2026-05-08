@@ -52,7 +52,7 @@ export default function DashboardCalendarPanel({ mode, events = [], setView }) {
 
   return <>
     <section className="dash-panel calendar-workspace-panel">
-      <div className="dash-section-head"><div><h2>Calendar Workspace</h2><p className="panel-sub">Showing {mode} events inside your dashboard.</p></div><button className="dash-link" onClick={() => setView('planner')}>+ Create</button></div>
+      <div className="dash-section-head"><div><h2>Calendar Workspace</h2><p className="panel-sub">Showing {mode} events inside your dashboard.</p></div><a className="btn-cal" href={`/dashboard/planner?mode=${mode}`}>Launch Guided Planner</a></div>
       <div className="dash-cards mini-cards"><MiniStat label="Calendar Events" value={events.length} color="green" /><MiniStat label="Google Synced" value={googleSynced} color="blue" /><MiniStat label="Investment Blocks" value={events.filter((e) => e.quadrant === 'q2').length} color="amber" /><MiniStat label="Do It Now" value={events.filter((e) => e.quadrant === 'q1').length} color="red" /></div>
       <div className="calendar-card-native">
         <div className="calendar-toolbar-native"><div><button className="btn-ghost" onClick={today}>Today</button><button className="btn-ghost" onClick={() => shift(-1)}>‹</button><button className="btn-ghost" onClick={() => shift(1)}>›</button></div><h2>{monthTitle(viewDate)}</h2></div>
