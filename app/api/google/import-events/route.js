@@ -14,20 +14,28 @@ function modeFromRequest(request, fallback = 'business') {
 }
 
 function reconnectPath(request) {
-  const url = new URL(request.url);
   const mode = modeFromRequest(request);
   const returnTo = `/dashboard?mode=${mode}&view=dashboard`;
   return `/api/auth/google?returnTo=${encodeURIComponent(returnTo)}`;
 }
 
-function isInvalidGrant(error) {
-  const values = [
+function errorText(error) {
+  return [
     error?.message,
     error?.response?.data?.error,
     error?.response?.data?.error_description,
     error?.errors?.[0]?.reason
-  ].filter(Boolean).map((value) => String(value).toLowerCase());
-  return values.some((value) => value.includes('invalid_grant') || value.includes('token has been expired') || value.includes('revoked'));
+  ].filter(Boolean).map((value) => String(value).toLowerCase()).join(' ');
+}
+
+function isInvalidGrant(error) {
+  const text = errorText(error);
+  return text.includes('invalid_grant') || text.includes('token has been expired') || text.includes('revoked');
+}
+
+function isInsufficientScopes(error) {
+  const text = errorText(error);
+  return text.includes('insufficient authentication scopes') || text.includes('insufficient_scope') || text.includes('insufficient permissions');
 }
 
 function dateAtLocalMidnight(dateString) {
@@ -110,26 +118,14 @@ export async function POST(request) {
       seen.add(event.id);
       dedupedImported.push(event);
     }
-    const nextWorkspace = {
-      ...workspace,
-      calendarEvents: [...existingNonImported, ...dedupedImported],
-      googleImportedAt: new Date().toISOString(),
-      googleImportedCount: dedupedImported.length
-    };
-    const nextState = {
-      ...fullState,
-      activeMode: mode,
-      workspaces: {
-        ...fullState.workspaces,
-        [mode]: nextWorkspace
-      }
-    };
+    const nextWorkspace = { ...workspace, calendarEvents: [...existingNonImported, ...dedupedImported], googleImportedAt: new Date().toISOString(), googleImportedCount: dedupedImported.length };
+    const nextState = { ...fullState, activeMode: mode, workspaces: { ...fullState.workspaces, [mode]: nextWorkspace } };
     const saved = await writePriorityState(session.profile.email, nextState);
     return NextResponse.json({ ok: true, mode, importedCount: dedupedImported.length, state: saved.workspaces[mode] });
   } catch (error) {
-    if (isInvalidGrant(error)) {
+    if (isInvalidGrant(error) || isInsufficientScopes(error)) {
       return NextResponse.json({
-        error: 'Google authorization expired or was revoked. Please reconnect Google Calendar.',
+        error: isInsufficientScopes(error) ? 'Google Calendar needs additional read permissions. Please reconnect Google and approve calendar access.' : 'Google authorization expired or was revoked. Please reconnect Google Calendar.',
         reconnectUrl: reconnectPath(request),
         requiresReconnect: true
       }, { status: 401 });
