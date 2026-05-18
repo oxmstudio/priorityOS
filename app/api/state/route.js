@@ -11,6 +11,7 @@ const EMPTY_WORKSPACE = {
   calendarEvents: [],
   statistics: null,
   habits: { completions: {} },
+  canvas: null,
   quads: { q1: [], q2: [], q3: [], q4: [] },
   synced: 0
 };
@@ -37,6 +38,7 @@ function ensureWorkspaceShape(workspace) {
     calendarEvents: Array.isArray(workspace?.calendarEvents) ? workspace.calendarEvents : [],
     statistics: workspace?.statistics && typeof workspace.statistics === 'object' ? workspace.statistics : null,
     habits: ensureHabits(workspace?.habits),
+    canvas: workspace?.canvas && typeof workspace.canvas === 'object' ? workspace.canvas : null,
     quads: {
       q1: Array.isArray(workspace?.quads?.q1) ? workspace.quads.q1 : [],
       q2: Array.isArray(workspace?.quads?.q2) ? workspace.quads.q2 : [],
