@@ -13,6 +13,23 @@ function modeFromRequest(request, fallback = 'business') {
   return mode === 'personal' ? 'personal' : 'business';
 }
 
+function reconnectPath(request) {
+  const url = new URL(request.url);
+  const mode = modeFromRequest(request);
+  const returnTo = `/dashboard?mode=${mode}&view=dashboard`;
+  return `/api/auth/google?returnTo=${encodeURIComponent(returnTo)}`;
+}
+
+function isInvalidGrant(error) {
+  const values = [
+    error?.message,
+    error?.response?.data?.error,
+    error?.response?.data?.error_description,
+    error?.errors?.[0]?.reason
+  ].filter(Boolean).map((value) => String(value).toLowerCase());
+  return values.some((value) => value.includes('invalid_grant') || value.includes('token has been expired') || value.includes('revoked'));
+}
+
 function dateAtLocalMidnight(dateString) {
   return `${dateString}T00:00:00`;
 }
@@ -74,10 +91,10 @@ async function fetchPrimaryCalendarEvents(auth) {
 
 export async function POST(request) {
   const session = getSession();
-  if (!session?.profile?.email) return NextResponse.json({ error: 'Connect Google Calendar before importing events.' }, { status: 401 });
+  if (!session?.profile?.email) return NextResponse.json({ error: 'Connect Google Calendar before importing events.', reconnectUrl: reconnectPath(request), requiresReconnect: true }, { status: 401 });
   try {
     const auth = getAuthedOAuthClient(session);
-    if (!auth) return NextResponse.json({ error: 'Google session is missing. Please reconnect Google.' }, { status: 401 });
+    if (!auth) return NextResponse.json({ error: 'Google session is missing. Please reconnect Google.', reconnectUrl: reconnectPath(request), requiresReconnect: true }, { status: 401 });
     const importedEvents = await fetchPrimaryCalendarEvents(auth);
     const fullState = await readPriorityState(session.profile.email);
     const mode = modeFromRequest(request, fullState.activeMode);
@@ -110,6 +127,13 @@ export async function POST(request) {
     const saved = await writePriorityState(session.profile.email, nextState);
     return NextResponse.json({ ok: true, mode, importedCount: dedupedImported.length, state: saved.workspaces[mode] });
   } catch (error) {
+    if (isInvalidGrant(error)) {
+      return NextResponse.json({
+        error: 'Google authorization expired or was revoked. Please reconnect Google Calendar.',
+        reconnectUrl: reconnectPath(request),
+        requiresReconnect: true
+      }, { status: 401 });
+    }
     return NextResponse.json({ error: error.message || 'Google Calendar import failed.' }, { status: 500 });
   }
 }
