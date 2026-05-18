@@ -1,5 +1,6 @@
 import Script from 'next/script';
 import './globals.css';
+import './calendar.css';
 import TaskNotesPatch from './TaskNotesPatch';
 
 export const metadata = {
