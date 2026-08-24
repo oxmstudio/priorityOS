@@ -58,6 +58,7 @@ export async function GET(request) {
     const workspace = ensureWorkspaceShape(fullState.workspaces?.[mode] || EMPTY_WORKSPACE);
     return NextResponse.json({ state: workspace, mode, fullState });
   } catch (error) {
+    console.error('GET /api/state error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
@@ -88,6 +89,7 @@ export async function PUT(request) {
     const workspace = ensureWorkspaceShape(saved.workspaces?.[mode] || EMPTY_WORKSPACE);
     return NextResponse.json({ ok: true, state: workspace, mode, fullState: saved });
   } catch (error) {
+    console.error('PUT /api/state error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
