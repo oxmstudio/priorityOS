@@ -13,7 +13,8 @@ const EMPTY_WORKSPACE = {
   habits: { completions: {} },
   canvas: null,
   quads: { q1: [], q2: [], q3: [], q4: [] },
-  synced: 0
+  synced: 0,
+  dailyNotes: {}
 };
 
 function modeFromRequest(request, fallback = 'business') {
@@ -45,7 +46,8 @@ function ensureWorkspaceShape(workspace) {
       q3: Array.isArray(workspace?.quads?.q3) ? workspace.quads.q3 : [],
       q4: Array.isArray(workspace?.quads?.q4) ? workspace.quads.q4 : []
     },
-    synced: Number.isFinite(Number(workspace?.synced)) ? Number(workspace.synced) : 0
+    synced: Number.isFinite(Number(workspace?.synced)) ? Number(workspace.synced) : 0,
+    dailyNotes: workspace?.dailyNotes && typeof workspace.dailyNotes === 'object' && !Array.isArray(workspace.dailyNotes) ? workspace.dailyNotes : {}
   };
 }
 
