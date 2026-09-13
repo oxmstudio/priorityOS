@@ -1,32 +1,29 @@
 'use client';
-import {useEffect,useRef,useState} from 'react';
+import {useRef,useState,useEffect} from 'react';
 
 const qNames={q1:'Do It Now',q2:'Investment',q3:'Delegate It',q4:'Delete It'};
 const qColors={q1:'green',q2:'blue',q3:'amber',q4:'red'};
-const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
-const isRecurring=t=>!!(t?.recRule||t?.type==='op');
 function iso(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
 function time(v){try{return new Date(v).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}catch{return''}}
 function fdate(v){try{return new Date(v).toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}catch{return v||'Not scheduled'}}
 function eventOnDay(event,day){if(!event?.start)return false;const s=new Date(event.start),d=new Date(`${day}T00:00:00`);if(iso(s)===day)return true;if(!event.recRule)return false;if(d<new Date(s.getFullYear(),s.getMonth(),s.getDate()))return false;if(event.recRule.includes('FREQ=DAILY'))return true;if(event.recRule.includes('FREQ=MONTHLY'))return d.getDate()===s.getDate();if(event.recRule.includes('FREQ=WEEKLY')){const by=event.recRule.match(/BYDAY=([^;]+)/)?.[1],map=['SU','MO','TU','WE','TH','FR','SA'];return by?by.split(',').includes(map[d.getDay()]):d.getDay()===s.getDay()}return false}
+function isRecurring(t){return !!(t?.recRule||t?.type==='op')}
 
 export default function WorkboardDashboard({s,events,next,loading,setView,habitScore,habitCount,mode}){
-  const wrap=useRef(null),drag=useRef(null),widthRef=useRef([24,40,36]);
-  const[widths,setWidths]=useState([24,40,36]);
-  const[selectedDay,setSelectedDay]=useState(iso(new Date()));
-  useEffect(()=>{widthRef.current=widths},[widths]);
-  useEffect(()=>{function move(e){if(!drag.current||!wrap.current)return;const rect=wrap.current.getBoundingClientRect(),pct=clamp(((e.clientX-rect.left)/rect.width)*100,10,90),start=drag.current.start;if(drag.current.edge==='left'){let left=clamp(pct,16,54),mid=start[1]+(start[0]-left);if(mid<22){mid=22;left=start[0]+start[1]-22}setWidths([left,mid,100-left-mid])}else{let mid=clamp(pct-start[0],22,60),right=100-start[0]-mid;if(right<20){right=20;mid=80-start[0]}setWidths([start[0],mid,right])}}function up(){drag.current=null;document.body.classList.remove('resizing')}window.addEventListener('pointermove',move);window.addEventListener('pointerup',up);return()=>{window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',up)}} ,[]);
-  function start(edge){drag.current={edge,start:[...widthRef.current]};document.body.classList.add('resizing')}
-  const dayEvents=(events||[]).filter(e=>eventOnDay(e,selectedDay)).sort((a,b)=>new Date(a.start)-new Date(b.start));
-  return <div className="workboard-wrap">
-    <section className="workboard-stats"><Metric icon="✧" label="Values" value={s.values.length} color="green"/><Metric icon="◆" label="Goals" value={s.goals.length} color="blue"/><Metric icon="◴" label="Calendar" value={events.length} color="amber"/></section>
-    <section ref={wrap} className="workboard" style={{gridTemplateColumns:`minmax(230px,${widths[0]}fr) 9px minmax(320px,${100-widths[0]}fr)`}}>
-      <TaskPane s={s} habitScore={habitScore} habitCount={habitCount} setView={setView} mode={mode}/>
-      <div className="pane-resizer" onPointerDown={()=>start('left')}/>
-      <DayPane events={dayEvents} selected={selectedDay} setSelected={setSelectedDay} next={next} loading={loading} setView={setView}/>
-
-    </section>
-  </div>
+ const wrap=useRef(null),drag=useRef(null),widthRef=useRef(45);
+ const[width,setWidth]=useState(45),[selectedDay,setSelectedDay]=useState(iso(new Date()));
+ useEffect(()=>{widthRef.current=width},[width]);
+ useEffect(()=>{function move(e){if(!drag.current||!wrap.current)return;const rect=wrap.current.getBoundingClientRect();setWidth(Math.max(28,Math.min(72,((e.clientX-rect.left)/rect.width)*100)))}function up(){drag.current=null;document.body.classList.remove('resizing')}window.addEventListener('pointermove',move);window.addEventListener('pointerup',up);return()=>{window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',up)}},[]);
+ function start(){drag.current=true;document.body.classList.add('resizing')}
+ const dayEvents=(events||[]).filter(e=>eventOnDay(e,selectedDay)).sort((a,b)=>new Date(a.start)-new Date(b.start));
+ return <div className="workboard-wrap">
+  <section className="workboard-stats"><Metric icon="✧" label="Values" value={s.values.length} color="green"/><Metric icon="◆" label="Goals" value={s.goals.length} color="blue"/><Metric icon="◴" label="Calendar" value={events.length} color="amber"/></section>
+  <section ref={wrap} className="workboard" style={{gridTemplateColumns:`minmax(230px,${width}fr) 9px minmax(320px,${100-width}fr)`}}>
+   <TaskPane s={s} habitScore={habitScore} habitCount={habitCount} setView={setView} mode={mode}/>
+   <div className="pane-resizer" onPointerDown={start}/>
+   <DayPane events={dayEvents} selected={selectedDay} setSelected={setSelectedDay} next={next} loading={loading} setView={setView}/>
+  </section>
+ </div>
 }
 function TaskPane({s,habitScore,habitCount,setView,mode}){const tasks=s.tasks||[],q1=tasks.filter(t=>t.quadrant==='q1'),q2=tasks.filter(t=>t.quadrant==='q2'),ops=tasks.filter(isRecurring),loose=tasks.filter(t=>!t.quadrant&&!isRecurring(t));return <article className="workspace-pane task-pane"><PaneHead kicker="Inbox" title="Tasks & Checklist" action="Plan" href={`/dashboard/planner?mode=${mode}`}/><TaskSection title="Do It Now" color="green" items={q1}/><TaskSection title="Investment" color="blue" items={q2}/><TaskSection title="Operational Habits" color="amber" items={ops}/>{loose.length?<TaskSection title="Unsorted" color="red" items={loose}/>:null}<div className="pane-mini-card"><strong>{habitScore}% consistency</strong><span>{habitCount} recurring task{habitCount===1?'':'s'} tracked.</span><button onClick={()=>setView('habits')}>Open Habits</button></div></article>}
 function TaskSection({title,color,items}){return <div className="task-sec"><div className="task-sec-head"><span className={`dot ${color}`}/><strong>{title}</strong><em>{items.length}</em></div>{items.length?items.slice(0,8).map((t,i)=><label className="check-row" key={t.id||`${title}-${i}`}><input type="checkbox" readOnly checked={false}/><span>{t.name||t.title||t}</span>{isRecurring(t)?<b>recurs</b>:null}</label>):<p className="empty">Nothing here yet.</p>}</div>}
