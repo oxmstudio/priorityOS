@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { NextResponse } from 'next/server';
-import { issueSignedToken, presignUrl } from '@vercel/blob';
+import { get } from '@vercel/blob';
 import { getSession } from '../../../../../lib/session';
 
 export const runtime = 'nodejs';
@@ -17,13 +17,33 @@ export async function GET(request, { params }) {
 
   try {
     const pathname = `priorityos-moodboard/${userHash(session.profile.email)}/${id}`;
-    const token = await issueSignedToken({ pathname, operations: ['get'] });
-    const { presignedUrl } = await presignUrl(token, {
-      pathname,
-      operation: 'get',
-      validUntil: Date.now() + 60 * 60 * 1000
+    const result = await get(pathname, {
+      access: 'private',
+      ifNoneMatch: request.headers.get('if-none-match') || undefined
     });
-    return NextResponse.redirect(presignedUrl, 302);
+
+    if (!result || result.statusCode === 404) return new NextResponse('Not found', { status: 404 });
+
+    if (result.statusCode === 304) {
+      return new NextResponse(null, {
+        status: 304,
+        headers: {
+          ETag: result.blob.etag,
+          'Cache-Control': 'private, no-cache'
+        }
+      });
+    }
+
+    return new NextResponse(result.stream, {
+      status: 200,
+      headers: {
+        'Content-Type': result.blob.contentType || 'application/octet-stream',
+        'Content-Length': String(result.blob.size || ''),
+        'X-Content-Type-Options': 'nosniff',
+        ETag: result.blob.etag,
+        'Cache-Control': 'private, no-cache'
+      }
+    });
   } catch (error) {
     console.error('GET /api/moodboard/image error:', error);
     return new NextResponse('Not found', { status: 404 });
