@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import { put, del } from '@vercel/blob';
 import { getSession } from '../../../../lib/session';
+import { readPriorityState, writePriorityState } from '../../../../lib/blobState';
 
 export const runtime = 'nodejs';
 
@@ -12,6 +13,11 @@ function userHash(email) {
 function imageType(type) {
   return /^image\/(jpeg|png|webp|gif|avif)$/i.test(type || '');
 }
+
+const TILE_PRESETS = [
+  { x: 2, y: 4, w: 28 }, { x: 32, y: 4, w: 34 }, { x: 68, y: 4, w: 30 },
+  { x: 32, y: 36, w: 18 }, { x: 52, y: 36, w: 22 }, { x: 76, y: 54, w: 22 }, { x: 2, y: 50, w: 28 }
+];
 
 export async function POST(request) {
   const session = getSession();
@@ -32,7 +38,23 @@ export async function POST(request) {
       uploaded.push({ id, url: `/api/moodboard/image/${id}`, name: file.name || 'Mood board image', type: file.type });
     }
     if (!uploaded.length) return NextResponse.json({ error: 'Only JPG, PNG, WebP, GIF, or AVIF images up to 8 MB are supported.' }, { status: 400 });
-    return NextResponse.json({ ok: true, images: uploaded });
+
+    // Persist metadata during the upload itself so the board is account-level
+    // even if the dashboard workspace state is stale or changes modes.
+    const existing = await readPriorityState(session.profile.email);
+    const current = existing.moodBoard || (existing.workspaces?.business?.canvas?.items?.length
+      ? existing.workspaces.business.canvas
+      : existing.workspaces?.personal?.canvas?.items?.length
+        ? existing.workspaces.personal.canvas
+        : null);
+    const currentItems = Array.isArray(current?.items) ? current.items : [];
+    const nextItems = [...currentItems, ...uploaded.map((image, i) => {
+      const p = TILE_PRESETS[(currentItems.length + i) % TILE_PRESETS.length];
+      return { ...image, x: p.x, y: p.y, w: p.w, z: currentItems.length + i + 1 };
+    })];
+    await writePriorityState(session.profile.email, { ...existing, moodBoard: { items: nextItems } });
+
+    return NextResponse.json({ ok: true, images: uploaded, moodBoard: { items: nextItems } });
   } catch (error) {
     console.error('POST /api/moodboard/upload error:', error);
     return NextResponse.json({ error: error.message || 'Mood board upload failed.' }, { status: 500 });
@@ -47,6 +69,9 @@ export async function DELETE(request) {
     if (!id || !/^[a-f0-9-]{36}$/i.test(id)) return NextResponse.json({ error: 'Invalid image.' }, { status: 400 });
     const pathname = `priorityos-moodboard/${userHash(session.profile.email)}/${id}`;
     await del(pathname);
+    const existing = await readPriorityState(session.profile.email);
+    const items = Array.isArray(existing.moodBoard?.items) ? existing.moodBoard.items : [];
+    await writePriorityState(session.profile.email, { ...existing, moodBoard: { items: items.filter((item) => item.id !== id) } });
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error('DELETE /api/moodboard/upload error:', error);
