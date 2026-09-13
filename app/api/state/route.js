@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import { list } from '@vercel/blob';
 import { readPriorityState, writePriorityState } from '../../../lib/blobState';
@@ -46,13 +47,17 @@ function ensureWorkspaceShape(workspace) {
 }
 
 async function discoverMoodBoard(email) {
-  const hash = require('crypto').createHash('sha256').update(String(email || '').toLowerCase()).digest('hex');
-  const result = await list({ prefix: `priorityos-moodboard/${hash}/`, mode: 'folded' });
+  const hash = crypto.createHash('sha256').update(String(email || '').toLowerCase()).digest('hex');
+  const result = await list({ prefix: `priorityos-moodboard/${hash}/` });
   const blobs = Array.isArray(result?.blobs) ? result.blobs : [];
+  const presets = [
+    { x: 2, y: 4, w: 28 }, { x: 32, y: 4, w: 34 }, { x: 68, y: 4, w: 30 },
+    { x: 32, y: 36, w: 18 }, { x: 52, y: 36, w: 22 }, { x: 76, y: 54, w: 22 }, { x: 2, y: 50, w: 28 }
+  ];
   const items = blobs.map((blob, i) => {
     const id = blob.pathname?.split('/').pop();
     if (!id || !/^[a-f0-9-]{36}$/i.test(id)) return null;
-    const p = [{ x: 2, y: 4, w: 28 }, { x: 32, y: 4, w: 34 }, { x: 68, y: 4, w: 30 }, { x: 32, y: 36, w: 18 }, { x: 52, y: 36, w: 22 }, { x: 76, y: 54, w: 22 }, { x: 2, y: 50, w: 28 }][i % 7];
+    const p = presets[i % presets.length];
     return { id, url: `/api/moodboard/image/${id}`, name: 'Mood board image', type: blob.contentType || '', x: p.x, y: p.y, w: p.w, z: i + 1 };
   }).filter(Boolean);
   return items.length ? { items } : null;
@@ -66,11 +71,7 @@ export async function GET(request) {
     const mode = modeFromRequest(request, fullState.activeMode);
     const workspace = ensureWorkspaceShape(fullState.workspaces?.[mode] || EMPTY_WORKSPACE);
     let moodBoard = fullState.moodBoard || null;
-    if (!moodBoard?.items?.length) {
-      moodBoard = workspace.canvas?.items?.length ? workspace.canvas : null;
-    }
-    // If older uploads exist but their metadata was never persisted, rebuild a
-    // minimal board directly from the account's private Blob objects.
+    if (!moodBoard?.items?.length) moodBoard = workspace.canvas?.items?.length ? workspace.canvas : null;
     if (!moodBoard?.items?.length) moodBoard = await discoverMoodBoard(session.profile.email);
     workspace.canvas = moodBoard;
     return NextResponse.json({ state: workspace, mode, moodBoard, fullState: { ...fullState, moodBoard } });
@@ -87,14 +88,12 @@ export async function PUT(request) {
     const body = await request.json();
     const existing = await readPriorityState(session.profile.email);
     const mode = body.mode === 'personal' || body.activeMode === 'personal' ? 'personal' : modeFromRequest(request, existing.activeMode);
-
     if (Object.prototype.hasOwnProperty.call(body, 'moodBoard')) {
       const saved = await writePriorityState(session.profile.email, { ...existing, moodBoard: body.moodBoard || null });
       const workspace = ensureWorkspaceShape(saved.workspaces?.[mode] || EMPTY_WORKSPACE);
       workspace.canvas = saved.moodBoard || null;
       return NextResponse.json({ ok: true, state: workspace, mode, moodBoard: saved.moodBoard || null, fullState: saved });
     }
-
     const incoming = body.state || body;
     let nextState;
     if (incoming?.workspaces) nextState = { ...incoming, moodBoard: existing.moodBoard || null };
