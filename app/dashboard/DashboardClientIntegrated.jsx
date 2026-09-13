@@ -5,7 +5,7 @@ import StatisticsPanel from './StatisticsPanel';
 import HabitsPanel from './HabitsPanel';
 import WorkboardDashboard from './WorkboardDashboard';
 
-const EMPTY={values:[],goals:[],tasks:[],calendarEvents:[],statistics:null,habits:{completions:{}},canvas:null,quads:{q1:[],q2:[],q3:[],q4:[]},synced:0,dailyNotes:{}};
+const EMPTY={values:[],goals:[],tasks:[],calendarEvents:[],statistics:{charts:[],activeChartId:null,pinnedChartId:null},habits:{completions:{}},canvas:null,quads:{q1:[],q2:[],q3:[],q4:[]},synced:0,dailyNotes:{}};
 const nav=[['dashboard','▦','Dashboard'],['calendar','◴','Calendar'],['statistics','▧','Statistics'],['habits','◎','Habits'],['privacy','◌','Privacy'],['terms','□','Terms']];
 const habitsShape=h=>({completions:h?.completions&&typeof h.completions==='object'?h.completions:{}});
 function norm(s){return{values:Array.isArray(s?.values)?s.values:[],goals:Array.isArray(s?.goals)?s.goals:[],tasks:Array.isArray(s?.tasks)?s.tasks:[],calendarEvents:Array.isArray(s?.calendarEvents)?s.calendarEvents:[],statistics:s?.statistics&&typeof s.statistics==='object'?s.statistics:null,habits:habitsShape(s?.habits),canvas:s?.canvas&&typeof s.canvas==='object'?s.canvas:null,quads:{q1:Array.isArray(s?.quads?.q1)?s.quads.q1:[],q2:Array.isArray(s?.quads?.q2)?s.quads.q2:[],q3:Array.isArray(s?.quads?.q3)?s.quads.q3:[],q4:Array.isArray(s?.quads?.q4)?s.quads.q4:[]},synced:Number(s?.synced)||0,dailyNotes:s?.dailyNotes&&typeof s.dailyNotes==='object'&&!Array.isArray(s.dailyNotes)?s.dailyNotes:{}}}
