@@ -1,20 +1,14 @@
 import { NextResponse } from 'next/server';
+import { list } from '@vercel/blob';
 import { readPriorityState, writePriorityState } from '../../../lib/blobState';
 import { getSession } from '../../../lib/session';
 
 export const runtime = 'nodejs';
 
 const EMPTY_WORKSPACE = {
-  values: [],
-  goals: [],
-  tasks: [],
-  calendarEvents: [],
-  statistics: null,
-  habits: { completions: {} },
-  canvas: null,
-  quads: { q1: [], q2: [], q3: [], q4: [] },
-  synced: 0,
-  dailyNotes: {}
+  values: [], goals: [], tasks: [], calendarEvents: [], statistics: null,
+  habits: { completions: {} }, canvas: null,
+  quads: { q1: [], q2: [], q3: [], q4: [] }, synced: 0, dailyNotes: {}
 };
 
 function modeFromRequest(request, fallback = 'business') {
@@ -51,6 +45,19 @@ function ensureWorkspaceShape(workspace) {
   };
 }
 
+async function discoverMoodBoard(email) {
+  const hash = require('crypto').createHash('sha256').update(String(email || '').toLowerCase()).digest('hex');
+  const result = await list({ prefix: `priorityos-moodboard/${hash}/`, mode: 'folded' });
+  const blobs = Array.isArray(result?.blobs) ? result.blobs : [];
+  const items = blobs.map((blob, i) => {
+    const id = blob.pathname?.split('/').pop();
+    if (!id || !/^[a-f0-9-]{36}$/i.test(id)) return null;
+    const p = [{ x: 2, y: 4, w: 28 }, { x: 32, y: 4, w: 34 }, { x: 68, y: 4, w: 30 }, { x: 32, y: 36, w: 18 }, { x: 52, y: 36, w: 22 }, { x: 76, y: 54, w: 22 }, { x: 2, y: 50, w: 28 }][i % 7];
+    return { id, url: `/api/moodboard/image/${id}`, name: 'Mood board image', type: blob.contentType || '', x: p.x, y: p.y, w: p.w, z: i + 1 };
+  }).filter(Boolean);
+  return items.length ? { items } : null;
+}
+
 export async function GET(request) {
   const session = getSession();
   if (!session?.profile?.email) return NextResponse.json({ error: 'Connect Google Calendar before loading Blob state.' }, { status: 401 });
@@ -58,10 +65,15 @@ export async function GET(request) {
     const fullState = await readPriorityState(session.profile.email);
     const mode = modeFromRequest(request, fullState.activeMode);
     const workspace = ensureWorkspaceShape(fullState.workspaces?.[mode] || EMPTY_WORKSPACE);
-    // Mood board is account-level. Keep the legacy workspace canvas in the
-    // response so the existing dashboard component can consume it unchanged.
-    workspace.canvas = fullState.moodBoard || null;
-    return NextResponse.json({ state: workspace, mode, moodBoard: fullState.moodBoard || null, fullState });
+    let moodBoard = fullState.moodBoard || null;
+    if (!moodBoard?.items?.length) {
+      moodBoard = workspace.canvas?.items?.length ? workspace.canvas : null;
+    }
+    // If older uploads exist but their metadata was never persisted, rebuild a
+    // minimal board directly from the account's private Blob objects.
+    if (!moodBoard?.items?.length) moodBoard = await discoverMoodBoard(session.profile.email);
+    workspace.canvas = moodBoard;
+    return NextResponse.json({ state: workspace, mode, moodBoard, fullState: { ...fullState, moodBoard } });
   } catch (error) {
     console.error('GET /api/state error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -76,9 +88,6 @@ export async function PUT(request) {
     const existing = await readPriorityState(session.profile.email);
     const mode = body.mode === 'personal' || body.activeMode === 'personal' ? 'personal' : modeFromRequest(request, existing.activeMode);
 
-    // Mood board metadata is account-level, while the rest of the dashboard
-    // remains workspace-specific. This makes the same board available on every
-    // device and in both Business and Personal modes.
     if (Object.prototype.hasOwnProperty.call(body, 'moodBoard')) {
       const saved = await writePriorityState(session.profile.email, { ...existing, moodBoard: body.moodBoard || null });
       const workspace = ensureWorkspaceShape(saved.workspaces?.[mode] || EMPTY_WORKSPACE);
@@ -94,8 +103,6 @@ export async function PUT(request) {
       nextState = {
         ...existing,
         activeMode: mode,
-        // Mirror legacy canvas writes into the account-level mood board so the
-        // existing dashboard component remains compatible during migration.
         moodBoard: incoming.canvas && typeof incoming.canvas === 'object' ? incoming.canvas : existing.moodBoard || null,
         workspaces: {
           business: ensureWorkspaceShape(existing.workspaces?.business || EMPTY_WORKSPACE),
