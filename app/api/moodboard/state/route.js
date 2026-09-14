@@ -26,13 +26,24 @@ function hasItems(board) {
 async function discoverMoodBoard(identity) {
   if (!identity) return null;
   try {
-    const result = await list({ prefix: `priorityos-moodboard/${userHash(identity)}/`, mode: 'folded' });
+    // Do not use `mode: 'folded'` here. Folded listing is folder-oriented;
+    // recovery needs the actual blob objects in `result.blobs`.
+    const result = await list({ prefix: `priorityos-moodboard/${userHash(identity)}/`, limit: 1000 });
     const blobs = Array.isArray(result?.blobs) ? result.blobs : [];
     const items = blobs.map((blob, i) => {
       const id = blob.pathname?.split('/').pop();
       if (!id || !/^[a-f0-9-]{36}$/i.test(id)) return null;
       const p = TILE_PRESETS[i % TILE_PRESETS.length];
-      return { id, url: `/api/moodboard/image/${id}`, name: 'Mood board image', type: blob.contentType || '', x: p.x, y: p.y, w: p.w, z: i + 1 };
+      return {
+        id,
+        url: `/api/moodboard/image/${id}`,
+        name: blob.pathname?.split('/').pop() || 'Mood board image',
+        type: blob.contentType || '',
+        x: p.x,
+        y: p.y,
+        w: p.w,
+        z: i + 1
+      };
     }).filter(Boolean);
     return items.length ? { items } : null;
   } catch (error) {
@@ -54,7 +65,7 @@ async function readAccountState(session) {
   }
 
   // If metadata was lost but the private image blobs survived, rebuild the board
-  // directly from the blobs and persist the recovered metadata under the account ID.
+  // directly from the blob objects and persist the recovered metadata.
   for (const candidate of [...new Set([session.profile.sub, session.profile.email].filter(Boolean))]) {
     const discovered = await discoverMoodBoard(candidate);
     if (hasItems(discovered)) return writePriorityState(identity, { ...current, moodBoard: discovered });
