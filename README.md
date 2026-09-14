@@ -7,6 +7,7 @@ PriorityOS is a Vercel-ready version of the Priority Manager prototype with:
 - server-side Calendar event creation, priority updates, and event deletion
 - Vercel Blob persistence per connected Google account
 - a local-first development mode for testing the UI without a Google account or Vercel Blob
+- Capacitor scaffolding for a native Android shell
 
 ## Run locally
 
@@ -18,35 +19,88 @@ npm run dev
 
 Open `http://localhost:3000` for the normal hosted-style development experience.
 
-### Phase 1: visual local mode
+### Local mode
 
-Phase 1 adds a browser-only local mode so the UI can be developed and visually tested without connecting Google or relying on Vercel Blob.
-
-Start the app with:
-
-```bash
-npm run dev
-```
-
-Then open:
+Local mode can be opened with:
 
 ```text
 http://localhost:3000/dashboard?local=1
 ```
+
+When running on `localhost` or `127.0.0.1`, the landing page also detects local mode automatically.
 
 Local mode:
 
 - uses browser `localStorage` for PriorityOS workspace state
 - keeps Business and Personal workspaces separate
 - keeps statistics, habits, tasks, notes, and calendar data locally
+- stores Mood Board image binaries in browser IndexedDB
+- serves saved local Mood Board images through the local service worker
 - preserves the same dashboard UI and components used by production
-- clearly labels the dashboard as `Local mode`
 - disables Google Calendar import because there is no Google connection
 - does not change the normal `/dashboard` production behavior
 
-To reset the Phase 1 local data, open the browser developer tools and remove the `priorityos.local.state.v1` local-storage entry for `localhost`.
+To reset local structured data, remove the `priorityos.local.state.v1` local-storage entry for the site. Mood Board image files are stored separately in the browser's IndexedDB database `priorityos.local.files.v1`.
 
-Mood Board image files remain on the existing server-backed image path during Phase 1. Local image/file storage is intentionally deferred to Phase 2 so the storage migration can be tested separately.
+## Phase 3: Android shell
+
+Capacitor is now configured as the native Android boundary around the existing PriorityOS UI. The browser implementation remains the reference local-first implementation; native storage can be moved behind the same storage adapter in a later step without rewriting the dashboard.
+
+### Bootstrap the Android project
+
+Run these commands once from the repository root:
+
+```bash
+npm install
+npx cap add android
+npm run cap:sync
+```
+
+The generated `android/` project should be committed to Git so Android Studio can open and build the app.
+
+Open it with:
+
+```bash
+npm run cap:open
+```
+
+### Fast Android UI development
+
+Keep Next.js running in another terminal:
+
+```bash
+npm run dev
+```
+
+For the Android emulator, point Capacitor at the host machine's Next.js server:
+
+```bash
+set CAPACITOR_SERVER_URL=http://10.0.2.2:3000/?local=1
+npm run cap:sync
+npm run cap:open
+```
+
+On macOS/Linux, use:
+
+```bash
+CAPACITOR_SERVER_URL=http://10.0.2.2:3000/?local=1 npm run cap:sync
+```
+
+The `?local=1` flag is intentional: it keeps the Android shell on PriorityOS's local storage path and prevents Google/Vercel dependencies from being used during development.
+
+### Phase 3 storage boundary
+
+The current architecture is:
+
+```text
+PriorityOS UI
+    ↓
+storageClient.js
+    ├── browser localStorage + IndexedDB
+    └── future Capacitor native storage
+```
+
+Do not replace the working browser IndexedDB implementation yet. The next native-storage step can add Capacitor Filesystem/SQLite behind this boundary, then the app can become fully offline without changing the dashboard components.
 
 ## Required environment variables
 
@@ -107,7 +161,7 @@ The original single-file prototype attempted to call a calendar assistant direct
 - `/api/state` reads/writes PriorityOS state in Vercel Blob
 - `/api/calendar/events` creates, updates, and deletes Google Calendar events
 
-The Phase 1 client storage adapter now sits between the dashboard UI and those server APIs. Production continues to use the existing API routes, while `?local=1` switches the dashboard to browser-local state.
+The client storage adapter sits between the dashboard UI and those server APIs. Production continues to use the existing API routes, while local mode switches the dashboard to browser-local state.
 
 ## Deployment
 
