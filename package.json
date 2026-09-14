@@ -6,9 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "cap:sync": "npx cap sync android",
+    "cap:open": "npx cap open android",
+    "cap:run": "npx cap run android",
+    "cap:doctor": "npx cap doctor"
   },
   "dependencies": {
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/core": "^7.4.3",
     "@vercel/blob": "latest",
     "googleapis": "latest",
     "next": "14.2.5",
@@ -16,6 +22,7 @@
     "react-dom": "18.3.1"
   },
   "devDependencies": {
+    "@capacitor/cli": "^7.4.3",
     "eslint": "^8.57.0",
     "eslint-config-next": "14.2.5"
   }
