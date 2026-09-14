@@ -4,7 +4,7 @@ import DashboardCalendarPanel from './DashboardCalendarPanel';
 import StatisticsPanel from './StatisticsPanel';
 import HabitsPanel from './HabitsPanel';
 import WorkboardDashboard from './WorkboardDashboard';
-import {isLocalMode,localAuth,readLocalState,saveMoodBoardState,saveWorkspaceState,writeLocalState} from '../../lib/storageClient';
+import {isLocalMode,localAuth,readLocalState,saveMoodBoardState,writeLocalState} from '../../lib/storageClient';
 
 const EMPTY={values:[],goals:[],tasks:[],calendarEvents:[],statistics:{charts:[],activeChartId:null,pinnedChartId:null},habits:{completions:{}},canvas:null,quads:{q1:[],q2:[],q3:[],q4:[]},synced:0,dailyNotes:{}};
 const nav=[['dashboard','▦','Dashboard'],['calendar','◴','Calendar'],['statistics','▧','Statistics'],['habits','◎','Habits'],['privacy','◌','Privacy'],['terms','□','Terms']];
