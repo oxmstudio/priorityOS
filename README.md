@@ -44,7 +44,7 @@ To reset local structured data, remove the `priorityos.local.state.v1` local-sto
 
 ## Phase 3: Android shell
 
-Capacitor is now configured as the native Android boundary around the existing PriorityOS UI. The browser implementation remains the reference local-first implementation; native storage can be moved behind the same storage adapter in a later step without rewriting the dashboard.
+Capacitor is configured as the native Android boundary around the existing PriorityOS UI. The browser implementation remains the reference local-first implementation; native storage can be moved behind the same storage adapter in a later step without rewriting the dashboard.
 
 ### Bootstrap the Android project
 
@@ -72,18 +72,29 @@ Keep Next.js running in another terminal:
 npm run dev
 ```
 
-For the Android emulator, point Capacitor at the host machine's Next.js server:
+Then run:
 
 ```bash
-set CAPACITOR_SERVER_URL=http://10.0.2.2:3000/?local=1
-npm run cap:sync
+npm run cap:dev
+```
+
+`cap:dev` configures Capacitor for the standard Android emulator host address (`10.0.2.2`), uses `?local=1`, and syncs the Android project. After that, open Android Studio with:
+
+```bash
 npm run cap:open
 ```
 
-On macOS/Linux, use:
+For a physical Android device, set the host address explicitly. For example:
 
 ```bash
-CAPACITOR_SERVER_URL=http://10.0.2.2:3000/?local=1 npm run cap:sync
+set CAPACITOR_HOST=192.168.1.50
+npm run cap:dev
+```
+
+On macOS/Linux:
+
+```bash
+CAPACITOR_HOST=192.168.1.50 npm run cap:dev
 ```
 
 The `?local=1` flag is intentional: it keeps the Android shell on PriorityOS's local storage path and prevents Google/Vercel dependencies from being used during development.
