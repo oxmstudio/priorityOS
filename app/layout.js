@@ -97,7 +97,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>
-        <Script id="priorityos-workspace-fetch" strategy="beforeInteractive">{workspaceFetchPatch}</Script>
+        <Script id="priorityos-workspace-fetch" strategy="afterInteractive">{workspaceFetchPatch}</Script>
         {children}
         <footer className="site-footer">
           <span>© {new Date().getFullYear()} PriorityOS</span>
