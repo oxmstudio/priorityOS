@@ -23,29 +23,43 @@ function hasItems(board) {
   return Array.isArray(board?.items) && board.items.length > 0;
 }
 
+function blobsToBoard(blobs) {
+  const items = (Array.isArray(blobs) ? blobs : []).map((blob, i) => {
+    const parts = String(blob?.pathname || '').split('/');
+    const id = parts.at(-1);
+    if (!id || !/^[a-f0-9-]{36}$/i.test(id)) return null;
+    const p = TILE_PRESETS[i % TILE_PRESETS.length];
+    return {
+      id,
+      url: `/api/moodboard/image/${id}`,
+      name: blob?.pathname || 'Mood board image',
+      type: blob?.contentType || '',
+      x: p.x,
+      y: p.y,
+      w: p.w,
+      z: i + 1
+    };
+  }).filter(Boolean);
+  return items.length ? { items } : null;
+}
+
 async function discoverMoodBoard(identity) {
   if (!identity) return null;
+  const hash = userHash(identity);
   try {
-    // Do not use `mode: 'folded'` here. Folded listing is folder-oriented;
-    // recovery needs the actual blob objects in `result.blobs`.
-    const result = await list({ prefix: `priorityos-moodboard/${userHash(identity)}/`, limit: 1000 });
-    const blobs = Array.isArray(result?.blobs) ? result.blobs : [];
-    const items = blobs.map((blob, i) => {
-      const id = blob.pathname?.split('/').pop();
-      if (!id || !/^[a-f0-9-]{36}$/i.test(id)) return null;
-      const p = TILE_PRESETS[i % TILE_PRESETS.length];
-      return {
-        id,
-        url: `/api/moodboard/image/${id}`,
-        name: blob.pathname?.split('/').pop() || 'Mood board image',
-        type: blob.contentType || '',
-        x: p.x,
-        y: p.y,
-        w: p.w,
-        z: i + 1
-      };
-    }).filter(Boolean);
-    return items.length ? { items } : null;
+    // Expanded mode returns the actual blob objects. We first query the exact
+    // account prefix, then fall back to the store root in case the store's
+    // prefix filtering behaves differently after a storage migration.
+    const exact = await list({ prefix: `priorityos-moodboard/${hash}/`, limit: 1000 });
+    const exactBoard = blobsToBoard(exact?.blobs);
+    if (exactBoard) return exactBoard;
+
+    const root = await list({ prefix: 'priorityos-moodboard/', limit: 1000 });
+    const matching = (Array.isArray(root?.blobs) ? root.blobs : []).filter(blob => {
+      const parts = String(blob?.pathname || '').split('/');
+      return parts[0] === 'priorityos-moodboard' && parts[1] === hash;
+    });
+    return blobsToBoard(matching);
   } catch (error) {
     console.error('Mood board blob discovery failed:', error);
     return null;
@@ -64,8 +78,7 @@ async function readAccountState(session) {
     if (hasItems(legacy.workspaces?.personal?.canvas)) return writePriorityState(identity, { ...current, moodBoard: legacy.workspaces.personal.canvas });
   }
 
-  // If metadata was lost but the private image blobs survived, rebuild the board
-  // directly from the blob objects and persist the recovered metadata.
+  // If metadata was lost but private image blobs survived, rebuild the board.
   for (const candidate of [...new Set([session.profile.sub, session.profile.email].filter(Boolean))]) {
     const discovered = await discoverMoodBoard(candidate);
     if (hasItems(discovered)) return writePriorityState(identity, { ...current, moodBoard: discovered });
@@ -94,8 +107,6 @@ export async function PUT(request) {
     const identity = accountIdentity(session);
     const existing = await readAccountState(session);
     const requested = body.moodBoard && typeof body.moodBoard === 'object' ? body.moodBoard : null;
-    // Do not let an accidental null request erase an existing/recovered board.
-    // An intentional empty board is represented by { items: [] } by the UI.
     const moodBoard = requested || (hasItems(existing.moodBoard) ? existing.moodBoard : null);
     const saved = await writePriorityState(identity, { ...existing, moodBoard });
     return NextResponse.json({ ok: true, moodBoard: saved.moodBoard || null });
