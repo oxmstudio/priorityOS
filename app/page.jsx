@@ -10,7 +10,12 @@ export default function Home() {
 
   useEffect(() => {
     let active = true;
-    const isLocal = new URLSearchParams(window.location.search).get('local') === '1';
+    const params = new URLSearchParams(window.location.search);
+    const isLocal =
+      params.get('local') === '1' ||
+      window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1';
+
     setLocalMode(isLocal);
 
     if (isLocal) {
