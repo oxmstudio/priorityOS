@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "cap:sync": "npx cap sync android",
+    "cap:sync": "node scripts/prepare-capacitor.mjs && npx cap sync android",
     "cap:open": "npx cap open android",
     "cap:run": "npx cap run android",
     "cap:doctor": "npx cap doctor"
