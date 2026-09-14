@@ -31,6 +31,7 @@ function blobsToBoard(blobs) {
     const p = TILE_PRESETS[i % TILE_PRESETS.length];
     return {
       id,
+      pathname: blob.pathname,
       url: `/api/moodboard/image/${id}`,
       name: blob?.pathname || 'Mood board image',
       type: blob?.contentType || '',
@@ -47,9 +48,6 @@ async function discoverMoodBoard(identity) {
   if (!identity) return null;
   const hash = userHash(identity);
   try {
-    // Expanded mode returns the actual blob objects. We first query the exact
-    // account prefix, then fall back to the store root in case the store's
-    // prefix filtering behaves differently after a storage migration.
     const exact = await list({ prefix: `priorityos-moodboard/${hash}/`, limit: 1000 });
     const exactBoard = blobsToBoard(exact?.blobs);
     if (exactBoard) return exactBoard;
@@ -66,19 +64,46 @@ async function discoverMoodBoard(identity) {
   }
 }
 
+async function attachStoredPaths(session, board) {
+  if (!hasItems(board)) return board;
+  const missing = board.items.some(item => !item?.pathname);
+  if (!missing) return board;
+
+  const identities = [...new Set([session.profile.sub, session.profile.email].filter(Boolean))];
+  const byId = new Map();
+  for (const identity of identities) {
+    try {
+      const result = await list({ prefix: `priorityos-moodboard/${userHash(identity)}/`, limit: 1000 });
+      for (const blob of result?.blobs || []) {
+        const id = String(blob.pathname || '').split('/').at(-1);
+        if (id) byId.set(id, blob.pathname);
+      }
+    } catch (error) {
+      console.error('Mood board path recovery failed:', error);
+    }
+  }
+  const items = board.items.map(item => item.pathname ? item : ({ ...item, pathname: byId.get(item.id) || undefined }));
+  return { ...board, items };
+}
+
 async function readAccountState(session) {
   const identity = accountIdentity(session);
-  const current = await readPriorityState(identity);
-  if (hasItems(current.moodBoard)) return current;
+  let current = await readPriorityState(identity);
+  if (hasItems(current.moodBoard)) {
+    const repaired = await attachStoredPaths(session, current.moodBoard);
+    if (JSON.stringify(repaired) !== JSON.stringify(current.moodBoard)) {
+      current = await writePriorityState(identity, { ...current, moodBoard: repaired });
+    }
+    return current;
+  }
 
   if (session.profile.sub && session.profile.email && session.profile.sub !== session.profile.email) {
     const legacy = await readPriorityState(session.profile.email);
-    if (hasItems(legacy.moodBoard)) return writePriorityState(identity, { ...current, moodBoard: legacy.moodBoard });
-    if (hasItems(legacy.workspaces?.business?.canvas)) return writePriorityState(identity, { ...current, moodBoard: legacy.workspaces.business.canvas });
-    if (hasItems(legacy.workspaces?.personal?.canvas)) return writePriorityState(identity, { ...current, moodBoard: legacy.workspaces.personal.canvas });
+    if (hasItems(legacy.moodBoard)) return writePriorityState(identity, { ...current, moodBoard: await attachStoredPaths(session, legacy.moodBoard) });
+    if (hasItems(legacy.workspaces?.business?.canvas)) return writePriorityState(identity, { ...current, moodBoard: await attachStoredPaths(session, legacy.workspaces.business.canvas) });
+    if (hasItems(legacy.workspaces?.personal?.canvas)) return writePriorityState(identity, { ...current, moodBoard: await attachStoredPaths(session, legacy.workspaces.personal.canvas) });
   }
 
-  // If metadata was lost but private image blobs survived, rebuild the board.
   for (const candidate of [...new Set([session.profile.sub, session.profile.email].filter(Boolean))]) {
     const discovered = await discoverMoodBoard(candidate);
     if (hasItems(discovered)) return writePriorityState(identity, { ...current, moodBoard: discovered });
