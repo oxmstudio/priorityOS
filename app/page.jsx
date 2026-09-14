@@ -6,9 +6,19 @@ const GOOGLE_CONNECT = '/api/auth/google?returnTo=/dashboard';
 
 export default function Home() {
   const [checking, setChecking] = useState(true);
+  const [localMode, setLocalMode] = useState(false);
 
   useEffect(() => {
     let active = true;
+    const isLocal = new URLSearchParams(window.location.search).get('local') === '1';
+    setLocalMode(isLocal);
+
+    if (isLocal) {
+      setChecking(false);
+      return () => {
+        active = false;
+      };
+    }
 
     fetch('/api/auth/status', { cache: 'no-store' })
       .then((r) => r.json())
@@ -57,7 +67,10 @@ export default function Home() {
           calendar time.
         </p>
 
-        <a className="landing-cta btn-cal" href={GOOGLE_CONNECT}>
+        <a
+          className="landing-cta btn-cal"
+          href={localMode ? '/dashboard?local=1' : GOOGLE_CONNECT}
+        >
           Open Priority Manager
         </a>
       </section>
