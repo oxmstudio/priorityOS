@@ -5,22 +5,34 @@ import { getSession } from '../../../../../lib/session';
 
 export const runtime = 'nodejs';
 
-function userHash(email) {
-  return crypto.createHash('sha256').update(String(email || '').toLowerCase()).digest('hex');
+function userHash(identity) {
+  return crypto.createHash('sha256').update(String(identity || '').toLowerCase()).digest('hex');
 }
 
 export async function GET(request, { params }) {
   const session = getSession();
   if (!session?.profile?.email) return NextResponse.json({ error: 'Not connected.' }, { status: 401 });
   const id = params?.id;
-  if (!id || !/^[a-f0-9-]{36}$/i.test(id)) return NextResponse.json({ error: 'Invalid image.' }, { status: 400 });
+  if (!id || !/^[a-f0-9-]{36}$/i.test(id)) return new NextResponse('Invalid image.', { status: 400 });
+
+  const identities = [session.profile.sub, session.profile.email].filter(Boolean);
+  const uniqueIdentities = [...new Set(identities)];
+  let result = null;
 
   try {
-    const pathname = `priorityos-moodboard/${userHash(session.profile.email)}/${id}`;
-    const result = await get(pathname, {
-      access: 'private',
-      ifNoneMatch: request.headers.get('if-none-match') || undefined
-    });
+    for (const identity of uniqueIdentities) {
+      const pathname = `priorityos-moodboard/${userHash(identity)}/${id}`;
+      try {
+        result = await get(pathname, {
+          access: 'private',
+          useCache: false,
+          ifNoneMatch: request.headers.get('if-none-match') || undefined
+        });
+        if (result) break;
+      } catch (_error) {
+        // Try the next identity key so older email-keyed uploads remain readable.
+      }
+    }
 
     if (!result || result.statusCode === 404) return new NextResponse('Not found', { status: 404 });
 
