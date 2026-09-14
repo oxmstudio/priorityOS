@@ -7,7 +7,7 @@ import { readPriorityState, writePriorityState } from '../../../../lib/blobState
 export const runtime = 'nodejs';
 
 function userHash(identity) {
-  return crypto.createHash('sha256').update(String(identity || 'anonymous')).digest('hex');
+  return crypto.createHash('sha256').update(String(identity || 'anonymous').toLowerCase()).digest('hex');
 }
 
 function accountIdentity(session) {
@@ -58,7 +58,7 @@ export async function POST(request) {
       const id = crypto.randomUUID();
       const pathname = `priorityos-moodboard/${userHash(identity)}/${id}`;
       await put(pathname, file, { access: 'private', contentType: file.type, addRandomSuffix: false, allowOverwrite: false });
-      uploaded.push({ id, url: `/api/moodboard/image/${id}`, name: file.name || 'Mood board image', type: file.type });
+      uploaded.push({ id, pathname, url: `/api/moodboard/image/${id}`, name: file.name || 'Mood board image', type: file.type });
     }
     if (!uploaded.length) return NextResponse.json({ error: 'Only JPG, PNG, WebP, GIF, or AVIF images up to 8 MB are supported.' }, { status: 400 });
 
@@ -71,7 +71,7 @@ export async function POST(request) {
     const currentItems = Array.isArray(current?.items) ? current.items : [];
     const nextItems = [...currentItems, ...uploaded.map((image, i) => {
       const p = TILE_PRESETS[(currentItems.length + i) % TILE_PRESETS.length];
-      return { ...image, x: p.x, y: p.y, w: p.w, z: currentItems.length + i + 1 };
+      return { ...image, x: p.x, y: p.y, w: p.w, aspectRatio: null, z: currentItems.length + i + 1 };
     })];
     await writePriorityState(identity, { ...existing, moodBoard: { items: nextItems } });
 
