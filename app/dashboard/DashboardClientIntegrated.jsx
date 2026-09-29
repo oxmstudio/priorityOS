@@ -36,9 +36,13 @@ export default function DashboardClientIntegrated(){
    await saveWorkspace({...state,tasks,calendarEvents,quads:Object.fromEntries(['q1','q2','q3','q4'].map(q=>[q,tasks.filter(t=>t.quadrant===q).map(t=>t.name)]))});
    return;
   }
-  const response=await fetch(`/api/calendar/save-task?mode=${mode}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode,task})});
+  const calendarResponse=await fetch('/api/calendar/events',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task,context:{goals:state.goals,values:state.values}})});
+  const calendarData=await calendarResponse.json().catch(()=>({}));
+  if(!calendarResponse.ok)throw new Error(calendarData.error||'Could not create the calendar event.');
+  const scheduledTask={...task,eventId:calendarData.eventId||null,calLink:calendarData.link||null};
+  const response=await fetch(`/api/calendar/save-task?mode=${mode}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode,task:scheduledTask})});
   const data=await response.json().catch(()=>({}));
-  if(!response.ok||!data.ok)throw new Error(data.error||'Could not add task to calendar.');
+  if(!response.ok||!data.ok)throw new Error(data.error||'Could not save the task to PriorityOS.');
   setState(norm(data.state||state));}
  function setView(v){setViewState(v);setMenuOpen(false);history.replaceState({},'',`/dashboard?mode=${mode}&view=${v}${localMode?'&local=1':''}`)}
  function switchMode(m){localStorage.setItem('priorityos.mode',m);setMode(m);history.replaceState({},'',`/dashboard?mode=${m}&view=${view}${localMode?'&local=1':''}`);load(m,localMode)}
