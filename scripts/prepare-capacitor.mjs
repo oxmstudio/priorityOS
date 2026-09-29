@@ -14,11 +14,11 @@ await writeFile(
     <title>PriorityOS</title>
   </head>
   <body>
-    <p>PriorityOS native shell is configured for the local Next.js development server.</p>
+    <p>PriorityOS native shell has not been built yet. Run <code>npm run cap:build</code>.</p>
   </body>
 </html>
 `,
   'utf8'
 );
 
-console.log(`Prepared Capacitor webDir: ${output}`);
+console.log(`Prepared fallback Capacitor webDir: ${output}`);
