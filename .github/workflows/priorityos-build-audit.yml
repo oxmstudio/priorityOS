@@ -1,0 +1,35 @@
+name: PriorityOS build audit
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  hosted-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm install
+      - run: npm run build
+
+  capacitor-export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm install
+      - run: npm run cap:build
+      - name: Verify native bundle
+        run: |
+          test -f out/index.html
+          test -f out/dashboard/index.html
+          test -f out/dashboard/planner/index.html
+          test -f out/dashboard/calendar/index.html
