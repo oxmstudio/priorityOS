@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
 
 const GOOGLE_CONNECT = '/api/auth/google?returnTo=/dashboard';
 
@@ -14,7 +15,8 @@ export default function Home() {
     const isLocal =
       params.get('local') === '1' ||
       window.location.hostname === 'localhost' ||
-      window.location.hostname === '127.0.0.1';
+      window.location.hostname === '127.0.0.1' ||
+      Capacitor.isNativePlatform();
 
     setLocalMode(isLocal);
 
