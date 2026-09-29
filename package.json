@@ -12,7 +12,8 @@
     "cap:open": "npx cap open android",
     "cap:run": "npx cap run android",
     "cap:doctor": "npx cap doctor",
-    "cap:build": "node scripts/capacitor-build.mjs"
+    "cap:build": "node scripts/capacitor-build.mjs",
+    "cap:apk": "node scripts/capacitor-release.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^7.4.3",
