@@ -99,19 +99,58 @@ CAPACITOR_HOST=192.168.1.50 npm run cap:dev
 
 The `?local=1` flag is intentional: it keeps the Android shell on PriorityOS's local storage path and prevents Google/Vercel dependencies from being used during development.
 
-### Phase 3 storage boundary
+### Standalone Android build
 
-The current architecture is:
+The installed Android app is local-first and does not require the Next.js development server, Vercel, Vercel Blob, or Google login for its core workspace data.
 
-```text
-PriorityOS UI
-    ↓
-storageClient.js
-    ├── browser localStorage + IndexedDB
-    └── future Capacitor native storage
+Native structured state is stored with Capacitor Filesystem, and Mood Board image files are stored in the app's native data directory. Browser local mode continues to use localStorage + IndexedDB.
+
+Build the standalone web bundle and sync it into Android with:
+
+```bash
+npm run cap:build
+npx cap sync android
 ```
 
-Do not replace the working browser IndexedDB implementation yet. The next native-storage step can add Capacitor Filesystem/SQLite behind this boundary, then the app can become fully offline without changing the dashboard components.
+For a directly installable debug APK:
+
+```bash
+npm run cap:apk
+```
+
+The APK is created at:
+
+```text
+android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+`cap:build` temporarily removes the server-only `app/api` tree while running the Next.js static export, then restores it before returning. This keeps the hosted Vercel API implementation intact while producing a self-contained native web bundle.
+
+The normal development workflow remains:
+
+```text
+Windows PC
+  ↓
+Next.js dev server
+  ↓
+Capacitor live-reload Android shell
+```
+
+The production phone workflow is:
+
+```text
+PriorityOS source
+  ↓
+Next.js static native export
+  ↓
+Capacitor Android
+  ↓
+APK
+  ↓
+Android phone
+```
+
+The native app automatically enters local mode through `Capacitor.isNativePlatform()`, so `?local=1` is not required for the installed APK.
 
 ## Required environment variables
 
